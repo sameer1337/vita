@@ -1,0 +1,39 @@
+# Environment & Secrets (NEVER commit these)
+.env.local
+.env
+.env.*.local
+.env.secret
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.packages
+*.g.dart
+
+# Supabase
+.supabase/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node / npm (for Supabase CLI)
+node_modules/
+package-lock.json
+yarn.lock
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# IDE workspace
+.code-workspace

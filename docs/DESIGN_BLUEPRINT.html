@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vita — Design Blueprint & Figma Master Prompt</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #21302B; line-height: 1.5; font-size: 11pt; margin: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1, h2, h3 { color: #2E3D38; line-height: 1.2; }
+  h1 { font-size: 26pt; margin: 0 0 4px; }
+  h2 { font-size: 16pt; margin: 26px 0 10px; padding-bottom: 6px;
+       border-bottom: 2px solid #6B9080; }
+  h3 { font-size: 12.5pt; margin: 18px 0 6px; color: #3E5F53; }
+  .sub { color: #6B9080; font-weight: 600; margin: 0 0 2px; letter-spacing: .3px; }
+  .lede { color: #5A6B64; margin: 6px 0 0; }
+  code, pre { font-family: "SF Mono", "Consolas", "Roboto Mono", monospace; }
+  pre {
+    background: #14201B; color: #DCEAE3; padding: 14px 16px; border-radius: 10px;
+    font-size: 8.6pt; line-height: 1.35; overflow: hidden; white-space: pre;
+    page-break-inside: avoid;
+  }
+  p code, li code, td code {
+    background: #EDF3F0; color: #2E3D38; padding: 1px 5px; border-radius: 5px; font-size: 9pt;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 9.5pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #D8E2DD; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #EDF3F0; color: #2E3D38; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .callout {
+    border: 1px solid #BFD4CB; background: #F4F8F6; border-left: 4px solid #6B9080;
+    border-radius: 10px; padding: 14px 18px; margin: 12px 0; page-break-inside: auto;
+  }
+  .callout p { margin: 8px 0; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .swatch { width: 132px; border: 1px solid #E0E8E4; border-radius: 8px; overflow: hidden; font-size: 8.4pt; }
+  .swatch .chip { height: 34px; }
+  .swatch .meta { padding: 4px 7px; }
+  .swatch .meta b { display: block; color: #2E3D38; }
+  .swatch .meta span { color: #6B7C75; }
+  .tag { display:inline-block; background:#6B9080; color:#fff; border-radius:20px;
+         padding:2px 10px; font-size:8.5pt; font-weight:600; }
+  .pagebreak { page-break-before: always; }
+  header.cover { padding: 8px 0 14px; border-bottom: 3px solid #6B9080; margin-bottom: 8px; }
+  .cover .mark { font-size: 30pt; }
+  footer { margin-top: 26px; color: #8A9A93; font-size: 8.5pt; border-top: 1px solid #E0E8E4; padding-top: 8px; }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="mark">🌱 <strong style="color:#2E3D38;">Vita</strong></div>
+  <p class="sub">DESIGN BLUEPRINT · FIGMA MASTER PROMPT</p>
+  <p class="lede">A complete, paste-ready brief for designing every Vita screen.
+  All tokens and screens below match the live app — calm, warm, dark + sage.</p>
+</header>
+
+<h2>1 · Screen &amp; navigation hierarchy</h2>
+<pre>
+Vita (mobile app)
+│
+├── Onboarding (LIGHT theme, 20 steps, full-screen)
+│   ├── Top progress bar + Back / voice-mute
+│   ├── Per-step emoji "character" hero + animated background blobs
+│   ├── 0 Name · 1 Email · 2 DOB(→age) · 3 Goal · 4 Sex
+│   ├── 5 Height(cm⇄ft) · 6 Weight(kg⇄lb) · 7 Target weight(conditional)
+│   ├── 8 Activity · 9 Equipment(multi) · 10 Days/wk · 11 Min/session(slider)
+│   ├── 12 Limitations(multi) · 13 Diet prefs(multi) · 14 Allergies · 15 Meals/day
+│   ├── 16 Cooking freq · 17 Workout time(picker)
+│   └── 18 Stress · 19 Sleep · 20 Mood → "Save my plan"
+│
+├── Plan-generating loading (sage spinner + reassuring copy)
+│
+└── HomeShell (DARK + sage · bottom nav + "Log meal" FAB)
+    ├── [Tab 1] Dashboard
+    │   ├── Header: greeting · name · 🔥 streak · avatar
+    │   ├── (optional) crisis / refer-to-professional banner
+    │   ├── Mood check-in card  ⇄  acknowledged-reply card
+    │   ├── Today rings: Calories · Water · Steps + "250 ml" + reset
+    │   ├── Weather & hydration card
+    │   ├── Today's workout gradient hero → Player
+    │   ├── "Your week" day strip (✓ done) → Player
+    │   ├── Daily targets donut (kcal-left) + P/C/F rows
+    │   └── Focus card · Mind check-in card · Disclaimer
+    │
+    ├── [Tab 2] Coach: header · chat bubbles (user/assistant) · typing · composer
+    ├── [Tab 3] Plan: targets · expandable workout week · sample meals
+    ├── [FAB] Log a meal: Photo⇄Describe · preview/text · Analyze · result · error
+    └── [pushed] Workout Player (LIGHT): phase chip · animated demo · timer ring
+                 · prev/pause/skip · completion screen
+</pre>
+
+<h2 class="pagebreak">2 · Design tokens</h2>
+
+<h3>Brand &amp; dark surfaces</h3>
+<div class="swatches">
+  <div class="swatch"><div class="chip" style="background:#6B9080"></div><div class="meta"><b>sage</b><span>#6B9080 · primary</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#2E3D38"></div><div class="meta"><b>deepSage</b><span>#2E3D38 · text/light</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#9CC3B2"></div><div class="meta"><b>sageLight</b><span>#9CC3B2 · accent/dark</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#F6F8F7"></div><div class="meta"><b>softBackground</b><span>#F6F8F7 · onboarding</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#14201B"></div><div class="meta"><b>darkBg</b><span>#14201B</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#1E2C26"></div><div class="meta"><b>darkSurface</b><span>#1E2C26</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#263A32"></div><div class="meta"><b>darkSurfaceAlt</b><span>#263A32</span></div></div>
+</div>
+
+<h3>Accents &amp; semantic</h3>
+<div class="swatches">
+  <div class="swatch"><div class="chip" style="background:#5B8DB8"></div><div class="meta"><b>blue</b><span>#5B8DB8 · water/carbs</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#E39A53"></div><div class="meta"><b>orange</b><span>#E39A53 · steps/core</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#D16BA5"></div><div class="meta"><b>pink</b><span>#D16BA5</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#7E6CC4"></div><div class="meta"><b>purple</b><span>#7E6CC4 · mobility</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#6BA368"></div><div class="meta"><b>green</b><span>#6BA368</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#E0566E"></div><div class="meta"><b>red</b><span>#E0566E · cardio</span></div></div>
+  <div class="swatch"><div class="chip" style="background:#D9A86C"></div><div class="meta"><b>fat</b><span>#D9A86C · macro</span></div></div>
+</div>
+
+<table>
+  <tr><th>System</th><th>Spec</th></tr>
+  <tr><td><b>Macros</b></td><td>Protein <code>#6B9080</code> · Carbs <code>#5B8DB8</code> · Fat <code>#D9A86C</code></td></tr>
+  <tr><td><b>Rings</b></td><td>Calories <code>#6B9080</code> · Water <code>#5B8DB8</code> · Steps <code>#E39A53</code></td></tr>
+  <tr><td><b>Exercise categories</b></td><td>Strength <code>#6B9080</code> · Lower <code>#5B8DB8</code> · Core <code>#E39A53</code> · Cardio <code>#E0566E</code> · Mobility <code>#7E6CC4</code></td></tr>
+  <tr><td><b>Typography</b></td><td>Humanist sans (Inter / SF Pro / Plus Jakarta). Display 24–26/w800 · Title 16–18/w700–800 · Body 14–15/w400–500 · Caption 11–12/muted; body line-height ~1.35</td></tr>
+  <tr><td><b>Spacing</b></td><td>4 / 8 / 12 / 16 / 20 / 24 · screen padding 20 · card padding 16–22</td></tr>
+  <tr><td><b>Radius</b></td><td>pills/chips 20–24 · cards 18–24 · inputs 14–16 · sheets 24 (top)</td></tr>
+  <tr><td><b>Elevation</b></td><td>flat default; hero card one soft colored shadow (sage @30%, blur 24, y+12); dark cards use 1px white-6% borders</td></tr>
+  <tr><td><b>Icons / mood</b></td><td>rounded Material icons; mood scale emoji 😞 😕 😐 🙂 😄</td></tr>
+</table>
+
+<h2 class="pagebreak">3 · The master prompt</h2>
+<p>Paste the block below into Figma AI (or any design tool). For tools with input
+limits, feed <b>Foundations + Components first</b>, then one screen section at a time.</p>
+
+<div class="callout">
+<p><b>You are designing Vita</b>, a mobile <b>AI wellness &amp; fitness coach</b> app (iOS + Android, 390×844 baseline). Produce a complete, polished, production-quality UI kit and all screens below as one cohesive design system. Follow this brief exactly.</p>
+
+<p><b>Product.</b> Vita turns a friendly 20-step onboarding into a personalized plan: daily calorie/macro targets, a weekly workout program with a guided player, food logging by photo or text, water + step + mood tracking, weather-aware hydration advice, and an AI coach chat. Tone: <b>calm, warm, encouraging, trustworthy</b> — a supportive coach, never a shouty fitness app. Audience: everyday adults building a wellness routine.</p>
+
+<p><b>Design language.</b> Two contexts, one family: <b>Onboarding is light &amp; airy</b> (welcoming first impression); the <b>main app is dark + sage</b> (focused, premium). Soft, rounded, generous spacing; large rounded corners; soft shadows. <b>No neon, no harsh gradients.</b> Nature-inspired sage palette. Friendly micro-personality: emoji "characters", gentle motion, encouraging microcopy.</p>
+
+<p><b>Color — brand:</b> sage #6B9080 (primary), deepSage #2E3D38 (text on light), sageLight #9CC3B2 (accent on dark), softBackground #F6F8F7 (onboarding bg). <b>Dark app surfaces:</b> bg #14201B, surface #1E2C26, surfaceAlt #263A32; text white / white-70% / white-38–54%. <b>Accents:</b> blue #5B8DB8, orange #E39A53, pink #D16BA5, purple #7E6CC4, green #6BA368, red #E0566E. <b>Semantic:</b> macros P #6B9080 / C #5B8DB8 / F #D9A86C; rings Calories #6B9080 / Water #5B8DB8 / Steps #E39A53; categories Strength #6B9080, Lower #5B8DB8, Core #E39A53, Cardio #E0566E, Mobility #7E6CC4.</p>
+
+<p><b>Type:</b> humanist sans (Inter / SF Pro / Plus Jakarta Sans). Display 24–26/w800 · Title 16–18/w700–800 · Body 14–15/w400–500 · Caption 11–12/muted; body line-height ~1.35. <b>Spacing:</b> 4/8/12/16/20/24; screen padding 20; card padding 16–22. <b>Radius:</b> pills/chips 20–24 · cards 18–24 · inputs 14–16 · sheets 24 top. <b>Elevation:</b> flat default; hero cards one soft colored shadow (sage @30%, blur 24, y+12); dark cards use 1px white-6% borders. <b>Icons:</b> rounded Material. <b>Mood scale:</b> emoji 😞 😕 😐 🙂 😄.</p>
+
+<p><b>Components (build the library first):</b> Buttons (filled sage r14 / white-on-color hero / tonal / outlined / icon / FAB.extended "Log meal"); <b>Stat ring</b> (circular progress, stroke 7, rounded cap, center value+unit, icon+label below) in Calories/Water/Steps; Cards (plain / gradient hero / info card with emoji+title+body / weather card with left temp column + advice); Chips (🔥 streak, WORK/REST phase, single &amp; multi select, week day-card with ✓); Segmented control (Photo/Describe); Macro pill (grams + P/C/F letter, macro-tinted); Donut chart (3 macro segments, "kcal left" center); Chat bubbles (assistant left/darkSurface, user right/sage, + typing bubble); Composer (pill field + circular send); Inputs (text, slider 1–10 with value, measurement field with cm/ft &amp; kg/lb toggle, time picker, DOB picker); Bottom nav (Home/Coach/Plan, dark, sage indicator, center FAB on Home); Banners ("not medical advice" + crisis resources); <b>Animated exercise demo</b> (square: concentric pulsing rings + bobbing category icon + category-label pill, tinted per category).</p>
+
+<p><b>States per interactive screen:</b> Empty · Loading · Default · Error · Success/Done · Disabled. Onboarding = light, main app = dark.</p>
+
+<p><b>Screens to deliver:</b> (1) Onboarding — a reusable step template (progress bar, character hero, animated blobs, question, input, Back+Continue) plus variants: single-select, multi-select chips, slider, measurement+unit-toggle, time picker, and final "Save my plan". (2) Plan-generating loading. (3) Dashboard — header+streak, mood check-in + acknowledged state, Today rings + water controls, weather/hydration card, workout gradient hero, week strip with ✓, macro donut + targets, focus &amp; mind cards, disclaimer. (4) Coach chat — header, both bubble types, typing state, composer, first-message empty state. (5) Plan — targets, expandable workout week, sample meals. (6) Log a meal — Photo &amp; Describe modes, analyzing state, editable result card, error. (7) Workout Player — WORK and REST variants (different accent), animated demo, timer ring, controls, + completion screen. (8) Bottom-nav shell showing all 3 tabs with the FAB.</p>
+
+<p><b>Accessibility &amp; trust:</b> WCAG-AA contrast on dark; tap targets ≥ 44px; never color-only (pair icon/label); persistent "not medical advice" footer; calm, non-judgmental copy.</p>
+
+<p><b>Output:</b> a structured Figma file — Page 1 Foundations (colors as variables, type styles, spacing, elevation), Page 2 Components (library with variants &amp; states), Page 3 Onboarding (light), Page 4 Main App (Dashboard, Coach, Plan, Log meal, Workout Player — dark), each screen on a 390×844 frame, named clearly, using Auto Layout and shared variables for every token.</p>
+</div>
+
+<h2 class="pagebreak">4 · Suggested Figma file structure</h2>
+<pre>
+📄 00 Cover / README
+📄 01 Foundations      (colors as variables, type styles, spacing, radius, elevation)
+📄 02 Components        (buttons, rings, cards, chips, nav, chat, inputs — variants)
+📄 03 Onboarding        (step template + variants, LIGHT theme)
+📄 04 Main App          (Dashboard, Coach, Plan, Log meal, Workout Player — DARK)
+📄 05 Flows / Prototype (onboarding → plan → home → workout;
+                          home → log meal; home → coach)
+</pre>
+
+<h3>Per-screen layout order (top → bottom)</h3>
+<table>
+  <tr><th>Screen</th><th>Stacked sections</th></tr>
+  <tr><td><b>Dashboard</b></td><td>Header(greeting+streak+avatar) → [banner] → Mood check-in → Today rings(+water) → Weather → Workout hero → Week strip → Macro donut+targets → Focus → Mind → Disclaimer</td></tr>
+  <tr><td><b>Coach</b></td><td>Header(🌱 + "Vita Coach") → message list (assistant left / user right) → typing → composer(field + send)</td></tr>
+  <tr><td><b>Plan</b></td><td>"Your plan" → Daily targets(kcal/P/C/F) → Workout week (expandable tiles → exercises + Start) → Sample meals</td></tr>
+  <tr><td><b>Log a meal</b></td><td>Segmented(Photo/Describe) → preview or text → Analyze → result(label, kcal, P/C/F pills, Redo/Add) → error</td></tr>
+  <tr><td><b>Workout Player</b></td><td>App bar(focus+mute) → segment progress → phase chip → "Exercise X of N" → animated demo → name → set/reps → timer ring → controls(prev/pause/skip) → completion</td></tr>
+  <tr><td><b>Onboarding step</b></td><td>Progress bar → character hero → question → input(varies) → Back + Continue</td></tr>
+</table>
+
+<footer>
+Vita — AI Wellness Coach · Design Blueprint · generated for Figma / UI-UX design.
+Tokens sourced from the live Flutter app. Dark + sage, calm and trustworthy.
+</footer>
+
+</body>
+</html>
