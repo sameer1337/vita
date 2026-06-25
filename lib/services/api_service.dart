@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/diet_plan.dart';
 import '../models/onboarding_answers.dart';
+import '../models/onboarding_draft.dart';
 import '../models/plan.dart';
 
 /// Thin wrapper around the Supabase Edge Functions that power Vita.
@@ -34,6 +36,33 @@ class ApiService {
       throw ApiException('Unexpected response from generate-plan');
     }
     return WellnessPlan.fromJson(data.cast<String, dynamic>());
+  }
+
+  /// Generate a goal-based 7-day meal plan from the user's profile + targets.
+  Future<WeeklyDietPlan> generateMealPlan(
+    OnboardingDraft profile,
+    WellnessPlan plan,
+  ) async {
+    final res = await _client.functions.invoke(
+      'meal-plan',
+      body: {
+        'goal': profile.goal ?? 'Improve fitness',
+        'calorie_target': plan.calorieTarget,
+        'macros': plan.macros.toJson(),
+        'meals_per_day': profile.mealsPerDay ?? '3',
+        'diet_prefs': profile.dietPrefs,
+        'allergies': profile.allergies ?? '',
+        'cooking_frequency': profile.cookingFrequency ?? 'Cook some meals',
+      },
+    );
+    final data = res.data;
+    if (data is Map && data['error'] != null) {
+      throw ApiException(data['error'].toString());
+    }
+    if (data is! Map) {
+      throw ApiException('Unexpected response from meal-plan');
+    }
+    return WeeklyDietPlan.fromJson(data.cast<String, dynamic>());
   }
 
   /// Parse a free-text meal description into nutrition data.

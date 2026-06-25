@@ -42,6 +42,35 @@ class SmokingNotifier extends Notifier<SmokingProfile> {
 
   /// Re-open the prompt (e.g. from a settings action).
   void reset() => _persist(const SmokingProfile());
+
+  /// Consecutive days (ending today, or yesterday if today isn't logged yet)
+  /// where the user stayed at or under their daily limit. [todayCount] is the
+  /// live count for today so the streak updates as they log.
+  int daysUnderLimit(int todayCount) {
+    final byDate = _store.cigarettesByDate();
+    final limit = state.dailyLimit;
+    var streak = 0;
+    var cursor = DateTime.now();
+
+    // Today only counts once it's within limit; if it's already over, the
+    // streak is broken now. If today has no entry yet, start from yesterday.
+    final todayKey = LocalStore.dateKey(cursor);
+    final hasToday = byDate.containsKey(todayKey) || todayCount > 0;
+    if (hasToday) {
+      if (todayCount > limit) return 0;
+      streak++;
+    }
+    cursor = cursor.subtract(const Duration(days: 1));
+
+    while (true) {
+      final key = LocalStore.dateKey(cursor);
+      if (!byDate.containsKey(key)) break; // no data → stop counting
+      if (byDate[key]! > limit) break;
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
 }
 
 final smokingProvider =

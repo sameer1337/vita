@@ -6,12 +6,17 @@
 // cached public URL instantly — so the rate-limited RapidAPI key is hit at most
 // once per unique exercise.
 
+import { overrideMap } from "../_shared/exercise_catalog.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
+
+// Vetted name → confirmed ExerciseDB id (or null = use the offline demo).
+const OVERRIDE = overrideMap();
 
 const HOST = "exercisedb.p.rapidapi.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -78,6 +83,22 @@ async function cachePut(row: Record<string, unknown>) {
 
 function publicUrl(id: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${id}.gif`;
+}
+
+// Make sure the GIF for `id` is in our public bucket (download once from the
+// keyed RapidAPI endpoint if missing). Returns the public URL, or null if the
+// image couldn't be fetched.
+async function ensureGif(id: string, apiKey: string): Promise<string | null> {
+  const url = publicUrl(id);
+  const head = await fetch(url, { method: "HEAD" });
+  if (head.ok) return url;
+  const imgRes = await fetch(
+    `https://${HOST}/image?exerciseId=${id}&resolution=360`,
+    { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey } },
+  );
+  if (!imgRes.ok) return null;
+  const bytes = new Uint8Array(await imgRes.arrayBuffer());
+  return (await uploadGif(id, bytes)) ? url : null;
 }
 
 async function uploadGif(id: string, bytes: Uint8Array): Promise<boolean> {
@@ -181,6 +202,23 @@ Deno.serve(async (req: Request) => {
   if (!nameKey) return json({ found: false });
 
   try {
+    // 0. Vetted override: a hand-verified id (always the right movement and
+    //    equipment), or an explicit null meaning "use the offline demo".
+    const ov = OVERRIDE.get(nameKey);
+    if (ov !== undefined) {
+      if (ov.id === null) return json({ found: false });
+      const url = await ensureGif(ov.id, apiKey);
+      if (!url) return json({ found: false });
+      await cachePut({
+        name_key: nameKey,
+        exercise_id: ov.id,
+        resolved_name: ov.name,
+        public_url: url,
+        found: true,
+      });
+      return json({ found: true, url, name: ov.name });
+    }
+
     // 1. Cache hit?
     const cached = await cacheGet(nameKey);
     if (cached) {
@@ -201,20 +239,10 @@ Deno.serve(async (req: Request) => {
       return json({ found: false });
     }
 
-    // 3. Reuse the cached GIF file if another name already mapped to this id;
-    //    otherwise download it once and store it.
-    const url = publicUrl(best.id);
-    const head = await fetch(url, { method: "HEAD" });
-    if (!head.ok) {
-      const imgRes = await fetch(
-        `https://${HOST}/image?exerciseId=${best.id}&resolution=360`,
-        { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey } },
-      );
-      if (!imgRes.ok) return json({ found: false });
-      const bytes = new Uint8Array(await imgRes.arrayBuffer());
-      const ok = await uploadGif(best.id, bytes);
-      if (!ok) return json({ found: false });
-    }
+    // 3. Download + store the GIF once (reused if another name already mapped
+    //    to this id).
+    const url = await ensureGif(best.id, apiKey);
+    if (!url) return json({ found: false });
 
     await cachePut({
       name_key: nameKey,

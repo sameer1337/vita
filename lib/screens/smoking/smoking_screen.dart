@@ -133,6 +133,10 @@ class SmokingScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _StreakBanner(
+              days: ref.read(smokingProvider.notifier).daysUnderLimit(today),
+            ),
             const SizedBox(height: 24),
             _SectionTitle('Last 14 days'),
             const SizedBox(height: 8),
@@ -197,6 +201,37 @@ class SmokingScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A small banner celebrating consecutive days at or under the daily limit.
+class _StreakBanner extends StatelessWidget {
+  const _StreakBanner({required this.days});
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    final msg = days <= 0
+        ? 'Stay at or under your limit today to start a streak.'
+        : '$days day${days == 1 ? '' : 's'} at or under your limit — keep it going!';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.darkSurfaceAlt,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.sage.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Text(days > 0 ? '🔥' : '🎯', style: const TextStyle(fontSize: 24)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(msg,
+                style: const TextStyle(color: Colors.white, height: 1.35)),
+          ),
+        ],
       ),
     );
   }

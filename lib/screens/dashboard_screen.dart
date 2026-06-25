@@ -13,7 +13,9 @@ import '../theme/app_theme.dart';
 import '../widgets/refer_banner.dart';
 import 'account/account_screen.dart';
 import 'breathing/breathing_screen.dart';
+import 'nutrition/nutrition_screen.dart';
 import 'settings/reminders_screen.dart';
+import 'sleep/sleep_screen.dart';
 import 'smoking/smoking_screen.dart';
 import 'workout/workout_player_screen.dart';
 
@@ -122,6 +124,11 @@ class DashboardScreen extends ConsumerWidget {
                   ref.read(dailyProvider.notifier).addWater(250),
               onResetWater: () =>
                   ref.read(dailyProvider.notifier).resetWater(),
+              onCaloriesTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NutritionScreen(plan: plan),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             _WeatherWidget(
@@ -191,6 +198,13 @@ class DashboardScreen extends ConsumerWidget {
             _BreathingCard(
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const BreathingScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SleepCard(
+              hours: daily.sleepHours,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SleepScreen()),
               ),
             ),
             const SizedBox(height: 20),
@@ -388,6 +402,7 @@ class _TodayRings extends StatelessWidget {
     required this.stepGoal,
     required this.onAddWater,
     required this.onResetWater,
+    required this.onCaloriesTap,
   });
 
   final int caloriesLogged;
@@ -398,6 +413,7 @@ class _TodayRings extends StatelessWidget {
   final int stepGoal;
   final VoidCallback onAddWater;
   final VoidCallback onResetWater;
+  final VoidCallback onCaloriesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -417,14 +433,17 @@ class _TodayRings extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _StatRing(
-                label: 'Calories',
-                value: caloriesLogged.toDouble(),
-                goal: calorieTarget.toDouble(),
-                centerTop: '$caloriesLogged',
-                centerBottom: '/ $calorieTarget',
-                color: const Color(0xFF6B9080),
-                icon: Icons.local_fire_department_rounded,
+              GestureDetector(
+                onTap: onCaloriesTap,
+                child: _StatRing(
+                  label: 'Calories',
+                  value: caloriesLogged.toDouble(),
+                  goal: calorieTarget.toDouble(),
+                  centerTop: '$caloriesLogged',
+                  centerBottom: '/ $calorieTarget',
+                  color: const Color(0xFF6B9080),
+                  icon: Icons.local_fire_department_rounded,
+                ),
               ),
               _StatRing(
                 label: 'Water',
@@ -589,13 +608,13 @@ class _WeatherWidget extends StatelessWidget {
             const SizedBox(width: 14),
             const Expanded(
               child: Text(
-                'Enable location to get weather-based hydration tips.',
+                "Couldn't load the weather. Check your connection and retry.",
                 style: TextStyle(color: Colors.white70, height: 1.35),
               ),
             ),
             TextButton(
               onPressed: onRetry,
-              child: const Text('Enable',
+              child: const Text('Retry',
                   style: TextStyle(color: Color(0xFF9CC6E6))),
             ),
           ],
@@ -1109,6 +1128,58 @@ class _InfoCard extends StatelessWidget {
 }
 
 /// Dashboard entry into the guided breathing module.
+class _SleepCard extends StatelessWidget {
+  const _SleepCard({required this.hours, required this.onTap});
+  final double hours;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFF6FA8DC);
+    final logged = hours > 0;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              accent.withValues(alpha: 0.22),
+              accent.withValues(alpha: 0.10),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            const Text('😴', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Sleep',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, color: Colors.white)),
+                  const SizedBox(height: 4),
+                  Text(
+                    logged
+                        ? 'Last night: ${hours.toStringAsFixed(1)} h'
+                        : 'Log last night and track your rest',
+                    style: const TextStyle(color: Colors.white70, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white38),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BreathingCard extends StatelessWidget {
   const _BreathingCard({required this.onTap});
   final VoidCallback onTap;

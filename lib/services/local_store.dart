@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/daily_data.dart';
+import '../models/diet_plan.dart';
 import '../models/onboarding_draft.dart';
 import '../models/plan.dart';
 import '../models/reminder_settings.dart';
@@ -117,6 +118,21 @@ class LocalStore {
     await _prefs.remove(_profileKey);
   }
 
+  static const String _dietPlanKey = 'vita.diet_plan';
+
+  Future<void> saveDietPlan(WeeklyDietPlan plan) =>
+      _prefs.setString(_dietPlanKey, jsonEncode(plan.toJson()));
+
+  WeeklyDietPlan? loadDietPlan() {
+    final raw = _prefs.getString(_dietPlanKey);
+    if (raw == null) return null;
+    try {
+      return WeeklyDietPlan.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static const String _smokingKey = 'vita.smoking';
 
   SmokingProfile loadSmokingProfile() {
@@ -146,6 +162,23 @@ class LocalStore {
 
   Future<void> saveReminderSettings(ReminderSettings s) =>
       _prefs.setString(_remindersKey, jsonEncode(s.toJson()));
+
+  /// Sleep hours logged per day across stored history (yyyy-MM-dd → hours).
+  /// Only days with a logged value (> 0) are included.
+  Map<String, double> sleepByDate() {
+    final out = <String, double>{};
+    for (final key in _prefs.getKeys()) {
+      if (!key.startsWith('vita.day.')) continue;
+      final raw = _prefs.getString(key);
+      if (raw == null) continue;
+      try {
+        final j = jsonDecode(raw) as Map<String, dynamic>;
+        final h = (j['sleep_hours'] as num?)?.toDouble() ?? 0;
+        if (h > 0) out[j['date'] as String] = h;
+      } catch (_) {/* skip */}
+    }
+    return out;
+  }
 
   /// Cigarettes logged per day across stored history (yyyy-MM-dd → count).
   Map<String, int> cigarettesByDate() {

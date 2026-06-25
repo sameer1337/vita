@@ -38,15 +38,18 @@ class WeatherInfo {
 class WeatherService {
   WeatherService._();
 
-  /// Returns null when location permission is denied or the request fails —
-  /// callers should degrade gracefully (hide the card).
+  /// Returns null only when we can't determine a location at all AND the
+  /// network is down. We try precise device GPS first, then fall back to a
+  /// keyless IP-based lookup so the weather card still works without the user
+  /// ever granting location permission.
   static Future<WeatherInfo?> fetch() async {
-    final pos = await _position();
-    if (pos == null) return null;
+    final coords = await _coordinates();
+    if (coords == null) return null;
+    final (lat, lon) = coords;
 
     final uri = Uri.parse(
       'https://api.open-meteo.com/v1/forecast'
-      '?latitude=${pos.latitude}&longitude=${pos.longitude}'
+      '?latitude=$lat&longitude=$lon'
       '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code',
     );
 
@@ -96,6 +99,14 @@ class WeatherService {
     }
   }
 
+  /// Best-available coordinates: precise device GPS if permitted, otherwise a
+  /// keyless IP-based estimate (city-level, no permission required).
+  static Future<(double, double)?> _coordinates() async {
+    final pos = await _position();
+    if (pos != null) return (pos.latitude, pos.longitude);
+    return _ipLocation();
+  }
+
   static Future<Position?> _position() async {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) return null;
@@ -111,6 +122,24 @@ class WeatherService {
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.low),
       ).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Approximate location from the device's public IP (GeoJS, free, no key,
+  /// CORS-enabled so it works on web too). Returns null if it can't be reached.
+  static Future<(double, double)?> _ipLocation() async {
+    try {
+      final res = await http
+          .get(Uri.parse('https://get.geojs.io/v1/ip/geo.json'))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return null;
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      final lat = double.tryParse('${json['latitude']}');
+      final lon = double.tryParse('${json['longitude']}');
+      if (lat == null || lon == null) return null;
+      return (lat, lon);
     } catch (_) {
       return null;
     }

@@ -1,4 +1,5 @@
 import OpenAI from "npm:openai@^4";
+import { allowedNames } from "../_shared/exercise_catalog.ts";
 
 const client = new OpenAI({
   apiKey: Deno.env.get("GROQ_API_KEY"),
@@ -103,6 +104,13 @@ Deno.serve(async (req: Request) => {
 
     const userDataStr = JSON.stringify(body, null, 2);
 
+    // Constrain the workout to exercises we have verified demo GIFs for, so the
+    // demo always matches the movement and the user's available equipment.
+    const allowed = allowedNames(body.equipment ?? []);
+    const exerciseRule = allowed
+      ? `\n\nIMPORTANT — exercise selection: choose every exercise's "name" ONLY from this approved list (use the name exactly as written). Do not invent other exercises, and do not use any equipment the user doesn't have:\n${allowed.join(", ")}.`
+      : "";
+
     const completion = await client.chat.completions.create({
       model: MODEL,
       max_tokens: 2000,
@@ -113,7 +121,7 @@ Deno.serve(async (req: Request) => {
           role: "user",
           content: `Generate a personalized wellness plan for this user:
 
-${userDataStr}
+${userDataStr}${exerciseRule}
 
 Return ONLY valid JSON matching this schema (no other text):
 {

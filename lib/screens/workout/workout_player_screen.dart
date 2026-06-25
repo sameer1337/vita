@@ -146,6 +146,14 @@ class _WorkoutPlayerScreenState extends ConsumerState<WorkoutPlayerScreen> {
     if (_paused) TtsService.instance.stop();
   }
 
+  /// The next work segment after [_index] (for the "Up next" rest preview).
+  _Segment? _nextWork() {
+    for (var i = _index + 1; i < _segments.length; i++) {
+      if (_segments[i].kind == _Kind.work) return _segments[i];
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -159,83 +167,80 @@ class _WorkoutPlayerScreenState extends ConsumerState<WorkoutPlayerScreen> {
 
     final seg = _segments[_index];
     final isWork = seg.kind == _Kind.work;
-    final accent = isWork ? AppTheme.sage : const Color(0xFF5B8DB8);
+    final accent = isWork ? AppTheme.sageLight : const Color(0xFF6FA8DC);
     final progress = seg.seconds == 0 ? 0.0 : _secondsLeft / seg.seconds;
+    final next = _nextWork();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.day.focus),
-        actions: [
-          ValueListenableBuilder<bool>(
-            valueListenable: TtsService.instance.enabled,
-            builder: (context, on, _) => IconButton(
-              tooltip: on ? 'Mute voice' : 'Unmute voice',
-              icon: Icon(
-                  on ? Icons.volume_up_rounded : Icons.volume_off_rounded),
-              onPressed: () => setState(TtsService.instance.toggle),
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: AppTheme.darkBg,
       body: SafeArea(
         child: Column(
           children: [
-            LinearProgressIndicator(
-              value: (_index + 1) / _segments.length,
-              minHeight: 6,
-              backgroundColor: const Color(0xFFE2E8E5),
-              valueColor: AlwaysStoppedAnimation<Color>(accent),
-            ),
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      _PhaseChip(isWork: isWork, accent: accent),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Exercise ${seg.exerciseIndex + 1} of '
-                        '${seg.totalExercises}',
-                        style: const TextStyle(color: Colors.black54),
-                      ),
-                      const SizedBox(height: 16),
-                      ExerciseDemo(name: seg.exercise.name),
-                      const SizedBox(height: 20),
-                      Text(
-                        seg.exercise.name,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.deepSage,
-                            ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        isWork
-                            ? 'Set ${seg.setNumber} of ${seg.totalSets}  ·  '
-                                '${seg.exercise.reps} reps'
-                            : 'Rest before set ${_nextSetLabel(seg)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black54,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      _TimerRing(
-                        secondsLeft: _secondsLeft,
-                        progress: progress,
-                        accent: accent,
-                      ),
-                    ],
-                  ),
+            _TopBar(focus: widget.day.focus),
+            // Overall workout progress.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: (_index + 1) / _segments.length,
+                  minHeight: 6,
+                  backgroundColor: AppTheme.darkSurfaceAlt,
+                  valueColor: AlwaysStoppedAnimation<Color>(accent),
                 ),
               ),
             ),
+            // Hero: the demo (work) or the "up next" preview (rest).
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: isWork
+                    ? _WorkHero(seg: seg, accent: accent)
+                    : _RestHero(next: next, accent: accent),
+              ),
+            ),
+            // Exercise name + set/reps.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+              child: Column(
+                children: [
+                  Text(
+                    isWork
+                        ? seg.exercise.name
+                        : (next != null ? 'Up next' : 'Final stretch'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isWork
+                        ? 'Set ${seg.setNumber} of ${seg.totalSets}  ·  '
+                            '${seg.exercise.reps} reps'
+                        : (next != null
+                            ? next.exercise.name
+                            : 'Last rest — finish strong'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: accent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            _TimerRing(
+              secondsLeft: _secondsLeft,
+              progress: progress,
+              accent: accent,
+              label: isWork ? 'WORK' : 'REST',
+            ),
+            const SizedBox(height: 14),
             _Controls(
               paused: _paused,
               accent: accent,
@@ -248,32 +253,162 @@ class _WorkoutPlayerScreenState extends ConsumerState<WorkoutPlayerScreen> {
       ),
     );
   }
+}
 
-  String _nextSetLabel(_Segment seg) {
-    if (seg.setNumber < seg.totalSets) return '${seg.setNumber + 1}';
-    return '1 of the next exercise';
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.focus});
+  final String focus;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          Expanded(
+            child: Text(
+              focus,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: TtsService.instance.enabled,
+            builder: (context, on, _) => IconButton(
+              tooltip: on ? 'Mute voice' : 'Unmute voice',
+              icon: Icon(
+                on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: Colors.white70,
+              ),
+              onPressed: TtsService.instance.toggle,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _PhaseChip extends StatelessWidget {
-  const _PhaseChip({required this.isWork, required this.accent});
-  final bool isWork;
+/// The working-set hero: a big demo GIF with overlaid phase + counter badges.
+class _WorkHero extends StatelessWidget {
+  const _WorkHero({required this.seg, required this.accent});
+  final _Segment seg;
   final Color accent;
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final side = c.biggest.shortestSide.clamp(160.0, 360.0);
+        return Center(
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.darkSurface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: AppTheme.darkSurfaceAlt, width: 1),
+                ),
+                padding: const EdgeInsets.all(10),
+                child: ExerciseDemo(name: seg.exercise.name, size: side),
+              ),
+              Positioned(
+                left: 18,
+                top: 18,
+                child: _Badge(
+                  text: 'WORK',
+                  color: accent,
+                  filled: true,
+                ),
+              ),
+              Positioned(
+                right: 18,
+                top: 18,
+                child: _Badge(
+                  text: '${seg.exerciseIndex + 1}/${seg.totalExercises}',
+                  color: Colors.white,
+                  filled: false,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The rest hero: shows what's coming up next with a small demo.
+class _RestHero extends StatelessWidget {
+  const _RestHero({required this.next, required this.accent});
+  final _Segment? next;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppTheme.darkSurface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppTheme.darkSurfaceAlt, width: 1),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.bedtime_rounded, color: accent, size: 34),
+            const SizedBox(height: 10),
+            const Text(
+              'Catch your breath',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (next != null) ...[
+              const SizedBox(height: 18),
+              ExerciseDemo(name: next!.exercise.name, size: 130),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text, required this.color, required this.filled});
+  final String text;
+  final Color color;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.14),
+        color: filled ? color : Colors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        isWork ? 'WORK' : 'REST',
+        text,
         style: TextStyle(
-          color: accent,
+          color: filled ? AppTheme.darkBg : color,
           fontWeight: FontWeight.w800,
-          letterSpacing: 1.5,
+          fontSize: 12,
+          letterSpacing: 1.2,
         ),
       ),
     );
@@ -285,30 +420,32 @@ class _TimerRing extends StatelessWidget {
     required this.secondsLeft,
     required this.progress,
     required this.accent,
+    required this.label,
   });
 
   final int secondsLeft;
   final double progress;
   final Color accent;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 200,
-      height: 200,
+      width: 132,
+      height: 132,
       child: Stack(
         alignment: Alignment.center,
         children: [
           SizedBox(
-            width: 200,
-            height: 200,
+            width: 132,
+            height: 132,
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: progress, end: progress),
               duration: const Duration(milliseconds: 400),
               builder: (context, value, _) => CircularProgressIndicator(
                 value: value,
-                strokeWidth: 12,
-                backgroundColor: const Color(0xFFE9EEEC),
+                strokeWidth: 9,
+                backgroundColor: AppTheme.darkSurfaceAlt,
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
               ),
             ),
@@ -318,13 +455,21 @@ class _TimerRing extends StatelessWidget {
             children: [
               Text(
                 '$secondsLeft',
-                style: TextStyle(
-                  fontSize: 56,
+                style: const TextStyle(
+                  fontSize: 44,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.deepSage,
+                  color: Colors.white,
                 ),
               ),
-              const Text('seconds', style: TextStyle(color: Colors.black45)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                ),
+              ),
             ],
           ),
         ],
@@ -351,28 +496,28 @@ class _Controls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 22),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _circleButton(
             icon: Icons.skip_previous_rounded,
             onTap: onPrev,
-            color: Colors.white,
-            iconColor: AppTheme.deepSage,
+            color: AppTheme.darkSurface,
+            iconColor: Colors.white,
           ),
           _circleButton(
             icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
             onTap: onPause,
             color: accent,
-            iconColor: Colors.white,
+            iconColor: AppTheme.darkBg,
             big: true,
           ),
           _circleButton(
             icon: Icons.skip_next_rounded,
             onTap: onSkip,
-            color: Colors.white,
-            iconColor: AppTheme.deepSage,
+            color: AppTheme.darkSurface,
+            iconColor: Colors.white,
           ),
         ],
       ),
@@ -386,18 +531,18 @@ class _Controls extends StatelessWidget {
     required Color iconColor,
     bool big = false,
   }) {
-    final size = big ? 76.0 : 60.0;
+    final size = big ? 76.0 : 58.0;
     return Material(
       color: onTap == null ? color.withValues(alpha: 0.5) : color,
       shape: const CircleBorder(),
-      elevation: big ? 4 : 1,
+      elevation: big ? 4 : 0,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
           width: size,
           height: size,
-          child: Icon(icon, color: iconColor, size: big ? 40 : 28),
+          child: Icon(icon, color: iconColor, size: big ? 40 : 26),
         ),
       ),
     );
@@ -411,6 +556,7 @@ class _CompletionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.darkBg,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -422,25 +568,26 @@ class _CompletionView extends StatelessWidget {
                 height: 110,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.sage.withValues(alpha: 0.15),
+                  color: AppTheme.sage.withValues(alpha: 0.18),
                 ),
                 child: const Icon(Icons.check_rounded,
-                    size: 64, color: AppTheme.sage),
+                    size: 64, color: AppTheme.sageLight),
               ),
               const SizedBox(height: 24),
-              Text(
+              const Text(
                 'Workout complete!',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.deepSage,
-                    ),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 24,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Nice work finishing ${day.focus}. '
                 'Recovery is where the progress happens.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54, height: 1.4),
+                style: const TextStyle(color: Colors.white60, height: 1.4),
               ),
               const SizedBox(height: 32),
               SizedBox(

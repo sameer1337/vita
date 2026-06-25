@@ -51,6 +51,8 @@ class DailyData {
     this.moodCheckin,
     this.meals = const [],
     this.cigarettes = 0,
+    this.sleepHours = 0,
+    this.sleepQuality = 0,
   });
 
   /// yyyy-MM-dd.
@@ -65,6 +67,12 @@ class DailyData {
   /// Cigarettes logged today (quit-smoking module).
   final int cigarettes;
 
+  /// Hours slept last night (0 = not logged yet).
+  final double sleepHours;
+
+  /// 1–5 sleep quality rating (0 = not logged yet).
+  final int sleepQuality;
+
   int get caloriesLogged => meals.fold(0, (s, m) => s + m.calories);
   int get proteinG => meals.fold(0, (s, m) => s + m.proteinG);
   int get carbsG => meals.fold(0, (s, m) => s + m.carbsG);
@@ -76,6 +84,8 @@ class DailyData {
     int? moodCheckin,
     List<FoodEntry>? meals,
     int? cigarettes,
+    double? sleepHours,
+    int? sleepQuality,
   }) =>
       DailyData(
         date: date,
@@ -84,6 +94,8 @@ class DailyData {
         moodCheckin: moodCheckin ?? this.moodCheckin,
         meals: meals ?? this.meals,
         cigarettes: cigarettes ?? this.cigarettes,
+        sleepHours: sleepHours ?? this.sleepHours,
+        sleepQuality: sleepQuality ?? this.sleepQuality,
       );
 
   Map<String, dynamic> toJson() => {
@@ -93,6 +105,8 @@ class DailyData {
         'mood_checkin': moodCheckin,
         'meals': meals.map((m) => m.toJson()).toList(),
         'cigarettes': cigarettes,
+        'sleep_hours': sleepHours,
+        'sleep_quality': sleepQuality,
       };
 
   factory DailyData.fromJson(Map<String, dynamic> j) => DailyData(
@@ -106,6 +120,8 @@ class DailyData {
                 .toList() ??
             const [],
         cigarettes: (j['cigarettes'] as num?)?.toInt() ?? 0,
+        sleepHours: (j['sleep_hours'] as num?)?.toDouble() ?? 0,
+        sleepQuality: (j['sleep_quality'] as num?)?.toInt() ?? 0,
       );
 
   factory DailyData.empty(String date) => DailyData(date: date);

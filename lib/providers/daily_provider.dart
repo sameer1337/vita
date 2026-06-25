@@ -44,6 +44,14 @@ class DailyNotifier extends Notifier<DailyData> {
   void setMoodCheckin(int mood) =>
       _persist(state.copyWith(moodCheckin: mood));
 
+  /// Log last night's sleep: [hours] and a 1–5 [quality] rating.
+  void logSleep(double hours, int quality) => _persist(
+        state.copyWith(
+          sleepHours: hours.clamp(0, 24),
+          sleepQuality: quality.clamp(0, 5),
+        ),
+      );
+
   /// Completed-workout dates across all history (yyyy-MM-dd), sorted.
   List<String> completedDates() => _store.completedWorkoutDates();
 

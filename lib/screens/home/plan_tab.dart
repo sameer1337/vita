@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/plan.dart';
 import '../../theme/app_theme.dart';
+import '../diet/diet_plan_screen.dart';
 import '../workout/workout_player_screen.dart';
 
 /// Read-only view of the full generated plan: targets, the week's workouts
@@ -39,6 +40,8 @@ class PlanTab extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            _MealPlanCta(plan: plan),
             const SizedBox(height: 16),
             _card(
               'Workout week',
@@ -144,6 +147,69 @@ class PlanTab extends StatelessWidget {
           style: const TextStyle(color: Colors.white38, fontSize: 12),
         ),
       ],
+    );
+  }
+}
+
+/// Tappable banner that opens the goal-based weekly meal plan.
+class _MealPlanCta extends StatelessWidget {
+  const _MealPlanCta({required this.plan});
+  final WellnessPlan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DietPlanScreen(
+              calorieTarget: plan.calorieTarget,
+              plan: plan,
+            ),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppTheme.sage, AppTheme.darkSurfaceAlt],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.restaurant_menu_rounded,
+                  color: Colors.white, size: 28),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Weekly meal plan',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'A 7-day plan tailored to your goal',
+                      style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
