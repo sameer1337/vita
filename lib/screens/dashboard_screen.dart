@@ -12,6 +12,7 @@ import '../services/weather_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/refer_banner.dart';
 import 'account/account_screen.dart';
+import 'breathing/breathing_screen.dart';
 import 'settings/reminders_screen.dart';
 import 'smoking/smoking_screen.dart';
 import 'workout/workout_player_screen.dart';
@@ -125,7 +126,10 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _WeatherWidget(
               state: weatherAsync,
-              onRetry: () => ref.invalidate(weatherProvider),
+              onRetry: () async {
+                await WeatherService.requestAccess();
+                ref.invalidate(weatherProvider);
+              },
             ),
             if (!smoking.asked) ...[
               const SizedBox(height: 16),
@@ -182,6 +186,12 @@ class DashboardScreen extends ConsumerWidget {
               title: 'Mind check-in',
               body: plan.mindCheckinPrompt,
               color: const Color(0xFF7E6CC4),
+            ),
+            const SizedBox(height: 12),
+            _BreathingCard(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BreathingScreen()),
+              ),
             ),
             const SizedBox(height: 20),
             Text(
@@ -1093,6 +1103,53 @@ class _InfoCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Dashboard entry into the guided breathing module.
+class _BreathingCard extends StatelessWidget {
+  const _BreathingCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFF4FA3A3);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              accent.withValues(alpha: 0.22),
+              accent.withValues(alpha: 0.10),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            const Text('🫁', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Breathing exercises',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, color: Colors.white)),
+                  SizedBox(height: 4),
+                  Text('Calm down, focus, or wind down for sleep',
+                      style: TextStyle(color: Colors.white70, height: 1.35)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white38),
+          ],
+        ),
       ),
     );
   }

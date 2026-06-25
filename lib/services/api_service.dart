@@ -83,6 +83,24 @@ class ApiService {
     throw ApiException('Unexpected response from coach-chat');
   }
 
+  /// Resolve an exercise name to a real demo GIF URL (cached server-side in
+  /// Supabase Storage). Returns null if no good match was found.
+  Future<String?> exerciseGifUrl(String name) async {
+    try {
+      final res = await _client.functions.invoke(
+        'exercise-gif',
+        body: {'name': name},
+      );
+      final data = res.data;
+      if (data is Map && data['found'] == true && data['url'] is String) {
+        return data['url'] as String;
+      }
+    } catch (_) {
+      // Network/API failure — caller falls back to the animated demo.
+    }
+    return null;
+  }
+
   /// Full "describe my meal in text" pipeline → calories + macros.
   Future<NutritionResult> nutritionFromText(String description) async {
     final data = await lookupFood(description);

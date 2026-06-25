@@ -74,6 +74,12 @@ class LocalStore {
   int? getInt(String key) => _prefs.getInt(key);
   Future<void> setInt(String key, int value) => _prefs.setInt(key, value);
 
+  static const String _introSeenKey = 'vita.intro_seen';
+
+  /// Whether the first-launch walkthrough has been shown.
+  bool get introSeen => _prefs.getBool(_introSeenKey) ?? false;
+  Future<void> setIntroSeen(bool v) => _prefs.setBool(_introSeenKey, v);
+
   // ---- Onboarding result: plan + profile (so we don't re-onboard) ---------
 
   static const String _planKey = 'vita.plan';

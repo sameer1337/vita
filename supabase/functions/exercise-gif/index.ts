@@ -1,24 +1,30 @@
-import { encodeBase64 } from "jsr:@std/encoding@^1/base64";
+// Resolves an (AI-generated) exercise name to a real ExerciseDB demo GIF.
+//
+// First call for a name: fuzzy-matches it against ExerciseDB, downloads the
+// GIF once, caches it in the public `exercise-gifs` Storage bucket, and records
+// the name→url mapping in `exercise_media`. Later calls (any user) return the
+// cached public URL instantly — so the rate-limited RapidAPI key is hit at most
+// once per unique exercise.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
 const HOST = "exercisedb.p.rapidapi.com";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const BUCKET = "exercise-gifs";
 
-// Words that carry no matching signal.
 const STOP = new Set(
   "the a an with on to of and or your for from down up ups out into at by"
     .split(" "),
 );
-
 const EQUIP_PREFIX =
   /^(dumbbell|barbell|cable|machine|smith|kettlebell|band|resistance band|bodyweight|weighted|assisted)\s+/;
 
-/// Normalize a name: drop "(...)", punctuation/hyphens, collapse whitespace.
 function clean(s: string): string {
   return s
     .toLowerCase()
@@ -28,8 +34,6 @@ function clean(s: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
-
-/// Strip simple trailing plurals ("ups" -> "up", "dips" -> "dip").
 function depluralize(s: string): string {
   return s
     .split(" ")
@@ -37,137 +41,196 @@ function depluralize(s: string): string {
     .join(" ")
     .trim();
 }
-
 function significantWords(cleaned: string): string[] {
   return cleaned.split(" ").filter((w) => w.length > 1 && !STOP.has(w));
+}
+
+const json = (payload: unknown, status = 200) =>
+  new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+// ---- Cache (exercise_media table) --------------------------------------
+
+async function cacheGet(nameKey: string) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/exercise_media?name_key=eq.${encodeURIComponent(nameKey)}&select=*`,
+    { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } },
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
+async function cachePut(row: Record<string, unknown>) {
+  await fetch(`${SUPABASE_URL}/rest/v1/exercise_media`, {
+    method: "POST",
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates",
+    },
+    body: JSON.stringify(row),
+  });
+}
+
+function publicUrl(id: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${id}.gif`;
+}
+
+async function uploadGif(id: string, bytes: Uint8Array): Promise<boolean> {
+  const res = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${id}.gif`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "image/gif",
+        "x-upsert": "true",
+      },
+      body: bytes,
+    },
+  );
+  return res.ok || res.status === 409; // 409 = already exists
+}
+
+// ---- ExerciseDB matching ------------------------------------------------
+
+// deno-lint-ignore no-explicit-any
+async function findExercise(rawName: string, apiKey: string): Promise<any> {
+  const headers = { "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey };
+  const cleaned = depluralize(clean(rawName));
+  const sig = significantWords(cleaned);
+  const needed = sig.length === 0 ? 0 : Math.max(1, Math.ceil(sig.length / 2));
+  const wantsBodyweight = !EQUIP_PREFIX.test(cleaned);
+  const cleanedWords = cleaned.split(" ").filter(Boolean).length;
+
+  const queries = [
+    cleaned,
+    cleaned.replace(EQUIP_PREFIX, "").trim(),
+    sig.join(" "),
+    ...sig,
+  ].filter((q, i, a) => q.length >= 2 && a.indexOf(q) === i);
+
+  // deno-lint-ignore no-explicit-any
+  let best: any = null;
+  let bestScore = -1;
+
+  for (const q of queries) {
+    const res = await fetch(
+      `https://${HOST}/exercises/name/${encodeURIComponent(q)}?limit=50`,
+      { headers },
+    );
+    if (!res.ok) continue;
+    const list = await res.json();
+    if (!Array.isArray(list)) continue;
+
+    for (const e of list) {
+      const en = clean((e.name ?? "").toString());
+      const eq = (e.equipment ?? "").toString().toLowerCase();
+      const shared = sig.filter((w) => en.includes(w)).length;
+      if (shared < needed) continue;
+
+      let score = shared * 1000;
+      if (en === cleaned) score += 100000;
+      else if (en.endsWith(cleaned)) score += 30000;
+      else if (en.includes(cleaned)) score += 10000;
+      if (wantsBodyweight && eq === "body weight") score += 4000;
+      // Strongly prefer the most basic variant: penalise names that pad the
+      // query with extra words ("clap push up", "power point plank", "… with
+      // stork stance"), and break ties toward shorter names.
+      const enWords = en.split(" ").filter(Boolean).length;
+      score -= Math.max(0, enWords - cleanedWords) * 3000;
+      score -= en.length;
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+    if (best) break;
+  }
+  return best;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: corsHeaders,
-    });
+
+  // Accept the name from a POST body or a GET query param.
+  let rawName: string | undefined;
+  if (req.method === "POST") {
+    const body = await req.json().catch(() => ({}));
+    rawName = (body.name as string | undefined)?.trim();
+  } else if (req.method === "GET") {
+    rawName = new URL(req.url).searchParams.get("name")?.trim() ?? undefined;
+  } else {
+    return json({ error: "Method not allowed" }, 405);
   }
+
+  if (!rawName) return json({ error: "Missing name" }, 400);
 
   const apiKey = Deno.env.get("EXERCISEDB_API_KEY");
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: "EXERCISEDB_API_KEY not configured" }),
-      { status: 500, headers: corsHeaders },
-    );
-  }
+  if (!apiKey) return json({ error: "EXERCISEDB_API_KEY not configured" }, 500);
+
+  const nameKey = depluralize(clean(rawName));
+  if (!nameKey) return json({ found: false });
 
   try {
-    const body = await req.json();
-    const rawName = (body.name as string | undefined)?.trim();
-    const resolution = (body.resolution as string | undefined) ?? "360";
-    if (!rawName) {
-      return new Response(JSON.stringify({ error: "Missing name" }), {
-        status: 400,
-        headers: corsHeaders,
-      });
+    // 1. Cache hit?
+    const cached = await cacheGet(nameKey);
+    if (cached) {
+      return cached.found
+        ? json({
+            found: true,
+            url: cached.public_url,
+            name: cached.resolved_name,
+            target: cached.target,
+          })
+        : json({ found: false });
     }
 
-    const headers = { "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey };
-
-    const cleaned = depluralize(clean(rawName));
-    const sig = significantWords(cleaned);
-    // Require at least half of the meaningful words to match (min 1).
-    const needed = sig.length === 0 ? 0 : Math.max(1, Math.ceil(sig.length / 2));
-    const wantsBodyweight = !EQUIP_PREFIX.test(cleaned);
-
-    // Queries to try, broad-to-narrow. We then filter results by word overlap,
-    // so even a loose single-word search yields a precise pick.
-    const queries = [
-      cleaned,
-      cleaned.replace(EQUIP_PREFIX, "").trim(),
-      sig.join(" "),
-      ...sig,
-    ].filter((q, i, a) => q.length >= 2 && a.indexOf(q) === i);
-
-    // deno-lint-ignore no-explicit-any
-    let best: any = null;
-    let bestScore = -1;
-
-    for (const q of queries) {
-      const res = await fetch(
-        `https://${HOST}/exercises/name/${encodeURIComponent(q)}?limit=50`,
-        { headers },
-      );
-      if (!res.ok) continue;
-      const list = await res.json();
-      if (!Array.isArray(list)) continue;
-
-      for (const e of list) {
-        const en = clean((e.name ?? "").toString());
-        const eq = (e.equipment ?? "").toString().toLowerCase();
-        const shared = sig.filter((w) => en.includes(w)).length;
-        if (shared < needed) continue;
-
-        // Rank: exact name > ends-with phrase > contains phrase > overlap;
-        // prefer body-weight variants when no equipment was requested; prefer
-        // the simplest (shortest) name.
-        let score = shared * 1000;
-        if (en === cleaned) {
-          score += 100000;
-        } else if (en.endsWith(cleaned)) {
-          score += 30000;
-        } else if (en.includes(cleaned)) {
-          score += 10000;
-        }
-        if (wantsBodyweight && eq === "body weight") score += 4000;
-        score -= en.length;
-
-        if (score > bestScore) {
-          bestScore = score;
-          best = e;
-        }
-      }
-      if (best) break; // accept the first query that produced a qualifying match
-    }
-
+    // 2. Resolve via ExerciseDB.
+    const best = await findExercise(rawName, apiKey);
     if (!best) {
-      return new Response(JSON.stringify({ found: false }), {
-        status: 200,
-        headers: corsHeaders,
-      });
+      await cachePut({ name_key: nameKey, found: false });
+      return json({ found: false });
     }
 
-    const imgRes = await fetch(
-      `https://${HOST}/image?exerciseId=${best.id}&resolution=${resolution}`,
-      { headers },
-    );
-    if (!imgRes.ok) {
-      return new Response(JSON.stringify({ found: false }), {
-        status: 200,
-        headers: corsHeaders,
-      });
+    // 3. Reuse the cached GIF file if another name already mapped to this id;
+    //    otherwise download it once and store it.
+    const url = publicUrl(best.id);
+    const head = await fetch(url, { method: "HEAD" });
+    if (!head.ok) {
+      const imgRes = await fetch(
+        `https://${HOST}/image?exerciseId=${best.id}&resolution=360`,
+        { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey } },
+      );
+      if (!imgRes.ok) return json({ found: false });
+      const bytes = new Uint8Array(await imgRes.arrayBuffer());
+      const ok = await uploadGif(best.id, bytes);
+      if (!ok) return json({ found: false });
     }
 
-    const bytes = new Uint8Array(await imgRes.arrayBuffer());
-    const image = encodeBase64(bytes);
+    await cachePut({
+      name_key: nameKey,
+      exercise_id: best.id,
+      resolved_name: best.name,
+      target: best.target,
+      public_url: url,
+      found: true,
+    });
 
-    return new Response(
-      JSON.stringify({
-        found: true,
-        id: best.id,
-        name: best.name,
-        target: best.target,
-        image,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json({ found: true, url, name: best.name, target: best.target });
   } catch (error) {
-    return new Response(
-      JSON.stringify({
-        error: "Failed to fetch exercise image",
-        details: error instanceof Error ? error.message : String(error),
-      }),
-      { status: 500, headers: corsHeaders },
+    console.error("exercise-gif error:", error);
+    return json(
+      { error: error instanceof Error ? error.message : String(error) },
+      500,
     );
   }
 });

@@ -4,6 +4,11 @@
 .env.*.local
 .env.secret
 
+# Firebase config (keep the app's API key out of the public repo)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+**/firebase-adminsdk-*.json
+
 # Flutter
 .dart_tool/
 .flutter-plugins

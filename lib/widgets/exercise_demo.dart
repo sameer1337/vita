@@ -2,12 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../services/exercise_category.dart';
 import '../theme/app_theme.dart';
 
-/// A fully-offline animated exercise demo: a little figure performing a
-/// rep-style movement (squat → reach), tinted by the movement family and
-/// paced faster for cardio. Always renders, never fails, costs nothing.
+/// Shows a real ExerciseDB demo GIF for the exercise (resolved + cached by the
+/// `exercise-gif` Edge Function). While the GIF loads — or if no match is found
+/// or the network fails — it falls back to a fully-offline animated figure so
+/// there is always something on screen.
 class ExerciseDemo extends StatefulWidget {
   const ExerciseDemo({super.key, required this.name, this.size = 220});
 
@@ -22,6 +24,11 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late ExerciseCategoryInfo _info;
+  String? _gifUrl;
+
+  // Cache resolved URLs for the lifetime of the app session so re-opening an
+  // exercise is instant and doesn't re-hit the function.
+  static final Map<String, String?> _urlCache = {};
 
   @override
   void initState() {
@@ -29,13 +36,24 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     _info = ExerciseCategoryInfo.of(widget.name);
     _controller = AnimationController(vsync: this, duration: _durationFor(_info))
       ..repeat();
+    _loadGif();
+  }
+
+  Future<void> _loadGif() async {
+    final name = widget.name;
+    if (_urlCache.containsKey(name)) {
+      setState(() => _gifUrl = _urlCache[name]);
+      return;
+    }
+    final url = await ApiService().exerciseGifUrl(name);
+    _urlCache[name] = url;
+    if (mounted && name == widget.name) setState(() => _gifUrl = url);
   }
 
   Duration _durationFor(ExerciseCategoryInfo info) {
     // Cardio reps are quick; everything else is a steady, controlled tempo.
     return Duration(
-        milliseconds:
-            info.category == ExerciseCategory.cardio ? 900 : 1500);
+        milliseconds: info.category == ExerciseCategory.cardio ? 900 : 1500);
   }
 
   @override
@@ -44,6 +62,8 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     if (old.name != widget.name) {
       _info = ExerciseCategoryInfo.of(widget.name);
       _controller.duration = _durationFor(_info);
+      _gifUrl = null;
+      _loadGif();
     }
   }
 
@@ -55,72 +75,89 @@ class _ExerciseDemoState extends State<ExerciseDemo>
 
   @override
   Widget build(BuildContext context) {
+    final url = _gifUrl;
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
         width: widget.size,
         height: widget.size,
-        child: Stack(
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    _info.color.withValues(alpha: 0.20),
-                    _info.color.withValues(alpha: 0.06),
-                  ],
+        child: url != null
+            ? Container(
+                color: Colors.white,
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  loadingBuilder: (context, child, progress) =>
+                      progress == null ? child : _figure(),
+                  errorBuilder: (context, _, _) => _figure(),
                 ),
-              ),
-              child: const SizedBox.expand(),
-            ),
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) => CustomPaint(
-                size: Size.square(widget.size),
-                painter: _FigurePainter(
-                  t: _controller.value,
-                  category: _info.category,
-                  color: _info.color,
-                ),
-              ),
-            ),
-            // Family label chip.
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 12,
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_info.icon, size: 13, color: _info.color),
-                      const SizedBox(width: 5),
-                      Text(
-                        _info.label,
-                        style: const TextStyle(
-                          color: AppTheme.deepSage,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+              )
+            : _figure(),
       ),
+    );
+  }
+
+  /// The offline animated-figure fallback (gradient + stick figure + family
+  /// label).
+  Widget _figure() {
+    return Stack(
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _info.color.withValues(alpha: 0.20),
+                _info.color.withValues(alpha: 0.06),
+              ],
+            ),
+          ),
+          child: const SizedBox.expand(),
+        ),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => CustomPaint(
+            size: Size.square(widget.size),
+            painter: _FigurePainter(
+              t: _controller.value,
+              category: _info.category,
+              color: _info.color,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 12,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_info.icon, size: 13, color: _info.color),
+                  const SizedBox(width: 5),
+                  Text(
+                    _info.label,
+                    style: const TextStyle(
+                      color: AppTheme.deepSage,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

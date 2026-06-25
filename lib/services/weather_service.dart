@@ -75,6 +75,27 @@ class WeatherService {
     }
   }
 
+  /// Drive the OS permission flow from a user tap. Opens the location settings
+  /// if services are off, requests permission if undecided, and opens the app
+  /// settings if the user previously chose "deny forever" (the only way back).
+  static Future<void> requestAccess() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        await Geolocator.openLocationSettings();
+        return;
+      }
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+      }
+    } catch (_) {
+      // Best effort — the caller re-checks via fetch().
+    }
+  }
+
   static Future<Position?> _position() async {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) return null;

@@ -7,6 +7,7 @@ import 'config/supabase_config.dart';
 import 'screens/root.dart';
 import 'services/local_store.dart';
 import 'services/notification_service.dart';
+import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -22,6 +23,10 @@ Future<void> main() async {
 
   // Prepare local notifications (no-op on web).
   await NotificationService.instance.init();
+
+  // Register for push notifications (Android/iOS only; no-op on web).
+  // Fire-and-forget so a slow network never blocks app start.
+  PushService.instance.init();
 
   runApp(const ProviderScope(child: VitaApp()));
 }
