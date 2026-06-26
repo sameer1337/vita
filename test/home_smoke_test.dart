@@ -77,9 +77,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // Dashboard (Home tab) renders core sections.
-    expect(find.text('Today’s workout'), findsOneWidget);
-    expect(find.text('Your week'), findsOneWidget);
-    expect(find.text('How are you feeling today?'), findsOneWidget);
+    expect(find.text('Explore'), findsOneWidget);
+    expect(find.text('Meal plan'), findsWidgets);
+    expect(find.text('How are you feeling?'), findsOneWidget);
 
     // Bottom nav present.
     expect(find.text('Coach'), findsWidgets);

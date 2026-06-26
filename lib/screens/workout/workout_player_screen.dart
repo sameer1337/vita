@@ -308,38 +308,35 @@ class _WorkHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        final side = c.biggest.shortestSide.clamp(160.0, 360.0);
+        // Full-bleed 16:9 demo, fit to whatever space the hero has.
+        var w = c.maxWidth;
+        var h = w * 9 / 16;
+        if (h > c.maxHeight) {
+          h = c.maxHeight;
+          w = h * 16 / 9;
+        }
         return Center(
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.darkSurface,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: AppTheme.darkSurfaceAlt, width: 1),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Stack(
+              children: [
+                ExerciseDemo(name: seg.exercise.name, size: w, height: h),
+                Positioned(
+                  left: 16,
+                  top: 16,
+                  child: _Badge(text: 'WORK', color: accent, filled: true),
                 ),
-                padding: const EdgeInsets.all(10),
-                child: ExerciseDemo(name: seg.exercise.name, size: side),
-              ),
-              Positioned(
-                left: 18,
-                top: 18,
-                child: _Badge(
-                  text: 'WORK',
-                  color: accent,
-                  filled: true,
+                Positioned(
+                  right: 16,
+                  top: 16,
+                  child: _Badge(
+                    text: '${seg.exerciseIndex + 1}/${seg.totalExercises}',
+                    color: Colors.white,
+                    filled: false,
+                  ),
                 ),
-              ),
-              Positioned(
-                right: 18,
-                top: 18,
-                child: _Badge(
-                  text: '${seg.exerciseIndex + 1}/${seg.totalExercises}',
-                  color: Colors.white,
-                  filled: false,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -379,7 +376,7 @@ class _RestHero extends StatelessWidget {
             ),
             if (next != null) ...[
               const SizedBox(height: 18),
-              ExerciseDemo(name: next!.exercise.name, size: 130),
+              ExerciseDemo(name: next!.exercise.name, size: 200, height: 112),
             ],
           ],
         ),

@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../services/api_service.dart';
 import '../services/exercise_category.dart';
+import '../services/video_cache.dart';
 import '../theme/app_theme.dart';
 
 /// Public bucket holding the (Veo-generated) looping demo clips, keyed by a
@@ -18,10 +20,19 @@ const String _videoBase =
 ///   3. a fully-offline animated figure (always works).
 /// It degrades gracefully so there is always something on screen.
 class ExerciseDemo extends StatefulWidget {
-  const ExerciseDemo({super.key, required this.name, this.size = 220});
+  const ExerciseDemo({super.key, required this.name, this.size = 220, this.height});
 
   final String name;
+
+  /// Width of the demo box.
   final double size;
+
+  /// Optional height (defaults to a square). Pass `size * 9 / 16` for a
+  /// full-bleed 16:9 video tile.
+  final double? height;
+
+  double get _w => size;
+  double get _h => height ?? size;
 
   @override
   State<ExerciseDemo> createState() => _ExerciseDemoState();
@@ -55,13 +66,24 @@ class _ExerciseDemoState extends State<ExerciseDemo>
       .replaceAll(RegExp(r'^-+|-+$'), '');
 
   /// Try a video first; on miss, fall back to the GIF resolver.
+  /// On mobile the clip is downloaded once and played from a local file (so it
+  /// loops smoothly and isn't re-streamed every time); on web we stream and let
+  /// the browser cache it.
   Future<void> _resolve() async {
     final name = widget.name;
     if (!_noVideo.contains(name)) {
-      final url = '$_videoBase/${_videoKey(name)}.mp4';
-      final c = VideoPlayerController.networkUrl(Uri.parse(url));
+      final key = _videoKey(name);
+      final url = '$_videoBase/$key.mp4';
+      VideoPlayerController? c;
       try {
-        await c.initialize().timeout(const Duration(seconds: 8));
+        if (kIsWeb) {
+          c = VideoPlayerController.networkUrl(Uri.parse(url));
+        } else {
+          final file = await VideoCache.file(key, url);
+          if (file == null) throw 'no clip';
+          c = VideoPlayerController.file(file);
+        }
+        await c.initialize().timeout(const Duration(seconds: 12));
         if (!mounted || name != widget.name) {
           await c.dispose();
           return;
@@ -76,7 +98,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
         return;
       } catch (_) {
         _noVideo.add(name); // no clip for this exercise (yet)
-        await c.dispose();
+        await c?.dispose();
         if (!mounted || name != widget.name) return;
       }
     }
@@ -123,8 +145,8 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
-        width: widget.size,
-        height: widget.size,
+        width: widget._w,
+        height: widget._h,
         child: _buildContent(),
       ),
     );
@@ -132,11 +154,16 @@ class _ExerciseDemoState extends State<ExerciseDemo>
 
   Widget _buildContent() {
     if (_videoReady && _video != null) {
+      final s = _video!.value.size;
+      // Cover the box edge-to-edge (no letterbox bars).
       return ColoredBox(
         color: const Color(0xFF101A16),
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: _video!.value.aspectRatio,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: s.width,
+            height: s.height,
             child: VideoPlayer(_video!),
           ),
         ),
@@ -178,7 +205,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
         AnimatedBuilder(
           animation: _controller,
           builder: (context, _) => CustomPaint(
-            size: Size.square(widget.size),
+            size: Size(widget._w, widget._h),
             painter: _FigurePainter(
               t: _controller.value,
               category: _info.category,
