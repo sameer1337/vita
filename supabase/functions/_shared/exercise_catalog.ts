@@ -24,23 +24,23 @@ export interface CatalogEntry {
 
 export const CATALOG: CatalogEntry[] = [
   // ---- Bodyweight ----
+  // Every entry has a confirmed real GIF, so generated plans never fall back to
+  // the offline figure. (Wall sit, butt kicks, reverse lunge, bird dog were
+  // dropped — ExerciseDB has no demo for them.)
   { name: "Push-up", id: "0662", equip: "bw" },
   { name: "Pull-up", id: "0652", equip: "bw" },
   { name: "Burpee", id: "1160", equip: "bw" },
   { name: "Mountain climbers", id: "0630", equip: "bw" },
-  { name: "Jumping jacks", id: "3223", equip: "bw" },
-  { name: "High knees", id: null, equip: "bw" },
-  { name: "Butt kicks", id: null, equip: "bw" },
-  { name: "Squat", id: null, equip: "bw" },
+  { name: "Jumping jacks", id: "3224", equip: "bw" },
+  { name: "High knees", id: "3636", equip: "bw" },
+  { name: "Squat", id: "3533", equip: "bw" },
   { name: "Jump squat", id: "0514", equip: "bw" },
-  { name: "Wall sit", id: null, equip: "bw" },
   { name: "Walking lunge", id: "1460", equip: "bw" },
-  { name: "Reverse lunge", id: null, equip: "bw" },
   { name: "Glute bridge", id: "3013", equip: "bw" },
   { name: "Bench dip", id: "0129", equip: "bw" },
   { name: "Chest dip", id: "0251", equip: "bw" },
-  { name: "Plank", id: null, equip: "bw" },
-  { name: "Side plank", id: null, equip: "bw" },
+  { name: "Plank", id: "0464", equip: "bw" },
+  { name: "Side plank", id: "0705", equip: "bw" },
   { name: "Crunch", id: "0267", equip: "bw" },
   { name: "Bicycle crunch", id: "0003", equip: "bw" },
   { name: "Sit-up", id: "0735", equip: "bw" },
@@ -48,12 +48,11 @@ export const CATALOG: CatalogEntry[] = [
   { name: "Dead bug", id: "0276", equip: "bw" },
   { name: "Flutter kicks", id: "0459", equip: "bw" },
   { name: "Lying leg raise", id: "0620", equip: "bw" },
-  { name: "Bird dog", id: null, equip: "bw" },
   { name: "Inchworm", id: "1471", equip: "bw" },
   { name: "Bear crawl", id: "3360", equip: "bw" },
   { name: "Shoulder taps", id: "3699", equip: "bw" },
   { name: "Skater hops", id: "3361", equip: "bw" },
-  { name: "Superman", id: null, equip: "bw" },
+  { name: "Superman", id: "0489", equip: "bw" },
   { name: "Jump rope", id: "2612", equip: "bw" },
   { name: "World's greatest stretch", id: "1604", equip: "bw" },
 
