@@ -1,15 +1,22 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 import '../services/api_service.dart';
 import '../services/exercise_category.dart';
 import '../theme/app_theme.dart';
 
-/// Shows a real ExerciseDB demo GIF for the exercise (resolved + cached by the
-/// `exercise-gif` Edge Function). While the GIF loads — or if no match is found
-/// or the network fails — it falls back to a fully-offline animated figure so
-/// there is always something on screen.
+/// Public bucket holding the (Veo-generated) looping demo clips, keyed by a
+/// normalized exercise name, e.g. ".../exercise-videos/mountain-climbers.mp4".
+const String _videoBase =
+    'https://mdcdugxgxfnpoymhiexv.supabase.co/storage/v1/object/public/exercise-videos';
+
+/// Shows the best available demo for an exercise, in priority order:
+///   1. a real looping video clip (if one has been uploaded),
+///   2. a real ExerciseDB demo GIF (resolved + cached by `exercise-gif`),
+///   3. a fully-offline animated figure (always works).
+/// It degrades gracefully so there is always something on screen.
 class ExerciseDemo extends StatefulWidget {
   const ExerciseDemo({super.key, required this.name, this.size = 220});
 
@@ -24,11 +31,14 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late ExerciseCategoryInfo _info;
+
+  VideoPlayerController? _video;
+  bool _videoReady = false;
   String? _gifUrl;
 
-  // Cache resolved URLs for the lifetime of the app session so re-opening an
-  // exercise is instant and doesn't re-hit the function.
-  static final Map<String, String?> _urlCache = {};
+  // Session caches so re-opening an exercise is instant and we don't re-probe.
+  static final Map<String, String?> _gifCache = {};
+  static final Set<String> _noVideo = {};
 
   @override
   void initState() {
@@ -36,25 +46,56 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     _info = ExerciseCategoryInfo.of(widget.name);
     _controller = AnimationController(vsync: this, duration: _durationFor(_info))
       ..repeat();
+    _resolve();
+  }
+
+  static String _videoKey(String name) => name
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+
+  /// Try a video first; on miss, fall back to the GIF resolver.
+  Future<void> _resolve() async {
+    final name = widget.name;
+    if (!_noVideo.contains(name)) {
+      final url = '$_videoBase/${_videoKey(name)}.mp4';
+      final c = VideoPlayerController.networkUrl(Uri.parse(url));
+      try {
+        await c.initialize().timeout(const Duration(seconds: 8));
+        if (!mounted || name != widget.name) {
+          await c.dispose();
+          return;
+        }
+        await c.setLooping(true);
+        await c.setVolume(0);
+        await c.play();
+        setState(() {
+          _video = c;
+          _videoReady = true;
+        });
+        return;
+      } catch (_) {
+        _noVideo.add(name); // no clip for this exercise (yet)
+        await c.dispose();
+        if (!mounted || name != widget.name) return;
+      }
+    }
     _loadGif();
   }
 
   Future<void> _loadGif() async {
     final name = widget.name;
-    if (_urlCache.containsKey(name)) {
-      setState(() => _gifUrl = _urlCache[name]);
+    if (_gifCache.containsKey(name)) {
+      if (mounted) setState(() => _gifUrl = _gifCache[name]);
       return;
     }
     final url = await ApiService().exerciseGifUrl(name);
-    _urlCache[name] = url;
+    _gifCache[name] = url;
     if (mounted && name == widget.name) setState(() => _gifUrl = url);
   }
 
-  Duration _durationFor(ExerciseCategoryInfo info) {
-    // Cardio reps are quick; everything else is a steady, controlled tempo.
-    return Duration(
-        milliseconds: info.category == ExerciseCategory.cardio ? 900 : 1500);
-  }
+  Duration _durationFor(ExerciseCategoryInfo info) => Duration(
+      milliseconds: info.category == ExerciseCategory.cardio ? 900 : 1500);
 
   @override
   void didUpdateWidget(covariant ExerciseDemo old) {
@@ -62,44 +103,62 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     if (old.name != widget.name) {
       _info = ExerciseCategoryInfo.of(widget.name);
       _controller.duration = _durationFor(_info);
+      _video?.dispose();
+      _video = null;
+      _videoReady = false;
       _gifUrl = null;
-      _loadGif();
+      _resolve();
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _video?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final url = _gifUrl;
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
         width: widget.size,
         height: widget.size,
-        child: url != null
-            ? Container(
-                color: Colors.white,
-                child: Image.network(
-                  url,
-                  fit: BoxFit.contain,
-                  gaplessPlayback: true,
-                  loadingBuilder: (context, child, progress) =>
-                      progress == null ? child : _figure(),
-                  errorBuilder: (context, _, _) => _figure(),
-                ),
-              )
-            : _figure(),
+        child: _buildContent(),
       ),
     );
   }
 
-  /// The offline animated-figure fallback (gradient + stick figure + family
-  /// label).
+  Widget _buildContent() {
+    if (_videoReady && _video != null) {
+      return ColoredBox(
+        color: const Color(0xFF101A16),
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: _video!.value.aspectRatio,
+            child: VideoPlayer(_video!),
+          ),
+        ),
+      );
+    }
+    if (_gifUrl != null) {
+      return Container(
+        color: Colors.white,
+        child: Image.network(
+          _gifUrl!,
+          fit: BoxFit.contain,
+          gaplessPlayback: true,
+          loadingBuilder: (context, child, progress) =>
+              progress == null ? child : _figure(),
+          errorBuilder: (context, _, _) => _figure(),
+        ),
+      );
+    }
+    return _figure();
+  }
+
+  /// The offline animated-figure fallback (gradient + stick figure + label).
   Widget _figure() {
     return Stack(
       children: [
