@@ -7,6 +7,7 @@ import '../providers/onboarding_provider.dart';
 import '../providers/smoking_provider.dart';
 import '../providers/steps_provider.dart';
 import '../providers/weather_provider.dart';
+import '../services/weather_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/refer_banner.dart';
 import 'account/account_screen.dart';
@@ -185,6 +186,14 @@ class DashboardScreen extends ConsumerWidget {
                   : () => _open(context, WorkoutPlayerScreen(day: today)),
             ),
             const SizedBox(height: 14),
+            _WeatherCard(
+              weather: weatherAsync,
+              onRetry: () async {
+                await WeatherService.requestAccess();
+                ref.invalidate(weatherProvider);
+              },
+            ),
+            const SizedBox(height: 14),
             _Rings(
               caloriesLogged: daily.caloriesLogged,
               calorieTarget: plan.calorieTarget,
@@ -196,6 +205,14 @@ class DashboardScreen extends ConsumerWidget {
               feelsLike: weather?.feelsLikeC,
               onAddWater: () => ref.read(dailyProvider.notifier).addWater(250),
               onCalories: () => _open(context, NutritionScreen(plan: plan)),
+            ),
+            const SizedBox(height: 14),
+            _WaterCard(
+              waterMl: daily.waterMl,
+              waterGoal: waterGoal,
+              weatherBonusMl: weather?.hydrationBonusMl ?? 0,
+              onAdd: () => ref.read(dailyProvider.notifier).addWater(250),
+              onRemove: () => ref.read(dailyProvider.notifier).addWater(-250),
             ),
             const SizedBox(height: 22),
             const Text(
@@ -588,6 +605,234 @@ class _Ring extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A dedicated, always-visible weather card with the day's conditions and the
+/// hydration / training nudge Vita derives from them. Handles loading and the
+/// "couldn't locate you" state (with a Retry that drives the permission flow).
+class _WeatherCard extends StatelessWidget {
+  const _WeatherCard({required this.weather, required this.onRetry});
+
+  final AsyncValue<WeatherInfo?> weather;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2C4A63), Color(0xFF3E6B8C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: weather.when(
+        loading: () => const Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white70),
+            ),
+            SizedBox(width: 14),
+            Text('Checking the weather…',
+                style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+        error: (_, _) => _unavailable(),
+        data: (info) => info == null ? _unavailable() : _loaded(info),
+      ),
+    );
+  }
+
+  Widget _loaded(WeatherInfo info) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(info.emoji, style: const TextStyle(fontSize: 34)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${info.tempC.round()}°  ·  ${info.description}',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800)),
+                  Text(
+                      'Feels like ${info.feelsLikeC.round()}°  ·  '
+                      '${info.humidity}% humidity',
+                      style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                ],
+              ),
+            ),
+            if (info.hydrationBonusMl > 0)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('💧 +${info.hydrationBonusMl} ml',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(info.advice,
+            style: const TextStyle(color: Colors.white, height: 1.35, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _unavailable() {
+    return Row(
+      children: [
+        const Text('🌡️', style: TextStyle(fontSize: 28)),
+        const SizedBox(width: 14),
+        const Expanded(
+          child: Text("Couldn't load the weather right now.",
+              style: TextStyle(color: Colors.white70)),
+        ),
+        TextButton(
+          onPressed: onRetry,
+          child: const Text('Retry',
+              style: TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w700)),
+        ),
+      ],
+    );
+  }
+}
+
+/// An interactive hydration tracker: a progress bar of glasses toward the
+/// (weight + weather adjusted) daily goal, with add / remove controls.
+class _WaterCard extends StatelessWidget {
+  const _WaterCard({
+    required this.waterMl,
+    required this.waterGoal,
+    required this.weatherBonusMl,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final int waterMl;
+  final int waterGoal;
+  final int weatherBonusMl;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final goalGlasses = (waterGoal / 250).round().clamp(1, 16);
+    final glasses = (waterMl / 250).floor();
+    final pct = waterGoal <= 0 ? 0.0 : (waterMl / waterGoal).clamp(0.0, 1.0);
+    final litres = (waterMl / 1000).toStringAsFixed(2);
+    final goalLitres = (waterGoal / 1000).toStringAsFixed(1);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.darkSurface,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.water_drop_rounded,
+                  color: Color(0xFF5FA8E6), size: 20),
+              const SizedBox(width: 8),
+              const Text('Hydration',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16)),
+              const Spacer(),
+              Text('$litres / $goalLitres L',
+                  style: const TextStyle(
+                      color: Colors.white70, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 10,
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF5FA8E6)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (var i = 0; i < goalGlasses; i++)
+                      Icon(
+                        i < glasses
+                            ? Icons.local_drink_rounded
+                            : Icons.local_drink_outlined,
+                        size: 18,
+                        color: i < glasses
+                            ? const Color(0xFF5FA8E6)
+                            : Colors.white24,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _roundBtn(Icons.remove_rounded, waterMl <= 0 ? null : onRemove),
+              const SizedBox(width: 8),
+              _roundBtn(Icons.add_rounded, onAdd),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            weatherBonusMl > 0
+                ? 'Goal adjusts to your weight and today\'s heat '
+                    '(+$weatherBonusMl ml). One glass = 250 ml.'
+                : 'Goal adjusts to your weight and the weather. '
+                    'One glass = 250 ml.',
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roundBtn(IconData icon, VoidCallback? onTap) => Material(
+        color: onTap == null
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFF5FA8E6).withValues(alpha: 0.22),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(icon,
+                color: onTap == null ? Colors.white24 : Colors.white, size: 20),
+          ),
+        ),
+      );
 }
 
 class _ModuleTile extends StatelessWidget {

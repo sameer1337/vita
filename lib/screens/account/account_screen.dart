@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -64,6 +65,23 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           await auth.signInWithPassword(email: email, password: password);
         }
         if (mounted) setState(() => _status = 'Signed in as $email');
+      });
+
+  /// Deep link Supabase redirects back to after an OAuth sign-in on mobile.
+  /// On web the page itself is the redirect target, so we pass null.
+  /// NOTE: this scheme must be registered in AndroidManifest.xml and added to
+  /// the Supabase Auth "Redirect URLs" allow-list.
+  static const String _oauthRedirect = 'io.supabase.vita://login-callback/';
+
+  Future<void> _oauth(OAuthProvider provider) => _run(() async {
+        await Supabase.instance.client.auth.signInWithOAuth(
+          provider,
+          redirectTo: kIsWeb ? null : _oauthRedirect,
+          authScreenLaunchMode: LaunchMode.externalApplication,
+        );
+        // On success the session arrives via the auth-state stream (web: page
+        // redirect; mobile: deep link), which rebuilds this screen. Nothing to
+        // do here.
       });
 
   Future<void> _backup() => _run(() async {
@@ -161,7 +179,61 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             style: const TextStyle(color: AppTheme.sageLight),
           ),
         ),
+        const SizedBox(height: 8),
+        Row(
+          children: const [
+            Expanded(child: Divider(color: Colors.white12)),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Text('or continue with',
+                  style: TextStyle(color: Colors.white38, fontSize: 12)),
+            ),
+            Expanded(child: Divider(color: Colors.white12)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _oauthButton(
+          label: 'Continue with Google',
+          icon: const Text('G',
+              style: TextStyle(
+                  color: Color(0xFF4285F4),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18)),
+          onTap: () => _oauth(OAuthProvider.google),
+        ),
+        const SizedBox(height: 12),
+        _oauthButton(
+          label: 'Continue with Apple',
+          icon: const Icon(Icons.apple, color: Colors.white, size: 22),
+          onTap: () => _oauth(OAuthProvider.apple),
+        ),
       ],
+    );
+  }
+
+  Widget _oauthButton({
+    required String label,
+    required Widget icon,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: const BorderSide(color: Colors.white24),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      onPressed: _busy ? null : onTap,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(width: 24, height: 24, child: Center(child: icon)),
+          const SizedBox(width: 10),
+          Text(label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 15)),
+        ],
+      ),
     );
   }
 

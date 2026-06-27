@@ -37,6 +37,16 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- OAuth (Google / Apple via Supabase): deep link the provider
+                 redirects back to after sign-in. Must match _oauthRedirect in
+                 account_screen.dart and the Supabase Auth redirect allow-list. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="io.supabase.vita"
+                    android:host="login-callback"/>
+            </intent-filter>
         </activity>
         <!-- flutter_local_notifications: scheduled + reboot-persisted reminders -->
         <receiver android:exported="false"
