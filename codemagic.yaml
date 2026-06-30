@@ -6,12 +6,14 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        - firebase
       vars:
         BUNDLE_ID: com.sameer.vita
       # Secrets set in Codemagic UI (not here):
       #   APPLE_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_ID,
       #   APP_STORE_CONNECT_PRIVATE_KEY, CERTIFICATE_PRIVATE_KEY (for code signing)
-      #   GOOGLESERVICE_INFO_PLIST (base64 of GoogleService-Info.plist)
+      #   GOOGLESERVICE_INFO_PLIST (base64 of GoogleService-Info.plist) — in group "firebase"
     scripts:
       - name: Set bundle ID
         script: |
@@ -44,7 +46,9 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      # Secret set in Codemagic UI (Environment variables):
+      groups:
+        - firebase
+      # Secret set in Codemagic UI (Environment variables), group "firebase":
       #   GOOGLESERVICE_INFO_PLIST (base64 of GoogleService-Info.plist)
     scripts:
       - name: Restore Firebase iOS config
