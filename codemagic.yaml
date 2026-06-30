@@ -1,0 +1,60 @@
+workflows:
+  ios-release:
+    name: Vita iOS Release
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: com.sameer.vita
+      # Secrets set in Codemagic UI (not here):
+      #   APPLE_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_ID,
+      #   APP_STORE_CONNECT_PRIVATE_KEY, CERTIFICATE_PRIVATE_KEY (for code signing)
+      #   GOOGLESERVICE_INFO_PLIST (base64 of GoogleService-Info.plist)
+    scripts:
+      - name: Set bundle ID
+        script: |
+          cd ios
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" Runner/Info.plist
+
+      - name: Restore Firebase iOS config
+        script: |
+          echo $GOOGLESERVICE_INFO_PLIST | base64 --decode > ios/Runner/GoogleService-Info.plist
+
+      - name: Flutter pub get
+        script: flutter pub get
+
+      - name: Pod install
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
+      - name: Build iOS (no code signing — simulator/ad-hoc)
+        script: |
+          flutter build ios --release --no-codesign
+
+    artifacts:
+      - build/ios/iphoneos/Runner.app
+      - build/ios/archive/Runner.xcarchive
+
+  ios-simulator:
+    name: Vita iOS Simulator Build
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter pub get
+        script: flutter pub get
+
+      - name: Pod install
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
+      - name: Build for simulator
+        script: |
+          flutter build ios --simulator --debug
+
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app
