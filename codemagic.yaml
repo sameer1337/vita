@@ -44,7 +44,13 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      # Secret set in Codemagic UI (Environment variables):
+      #   GOOGLESERVICE_INFO_PLIST (base64 of GoogleService-Info.plist)
     scripts:
+      - name: Restore Firebase iOS config
+        script: |
+          echo $GOOGLESERVICE_INFO_PLIST | base64 --decode > ios/Runner/GoogleService-Info.plist
+
       - name: Flutter pub get
         script: flutter pub get
 
