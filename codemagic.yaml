@@ -68,3 +68,52 @@ workflows:
 
     artifacts:
       - build/ios/iphonesimulator/Runner.app
+
+  ios-preview:
+    name: Vita iOS Live Preview (VNC)
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - firebase
+      # Secret set in Codemagic UI (Environment variables), group "firebase":
+      #   GOOGLESERVICE_INFO_PLIST (base64 of GoogleService-Info.plist)
+    scripts:
+      - name: Restore Firebase iOS config
+        script: |
+          echo $GOOGLESERVICE_INFO_PLIST | base64 --decode > ios/Runner/GoogleService-Info.plist
+
+      - name: Flutter pub get
+        script: flutter pub get
+
+      - name: Pod install
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
+      - name: Build for simulator
+        script: |
+          flutter build ios --simulator --debug
+
+      - name: Boot simulator, install and launch app
+        script: |
+          SIM_NAME="iPhone 16"
+          UDID=$(xcrun simctl list devices available | grep "$SIM_NAME" | head -1 | grep -oE '[0-9A-F-]{36}')
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[0-9A-F-]{36}')
+          fi
+          echo "Using simulator UDID: $UDID"
+          xcrun simctl boot "$UDID" || true
+          open -a Simulator
+          xcrun simctl install "$UDID" build/ios/iphonesimulator/Runner.app
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" ios/Runner/Info.plist)
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+
+      - name: Keep session alive for VNC viewing
+        script: |
+          echo "Simulator is running — connect via VNC now. Staying alive for 20 minutes."
+          sleep 1200
+
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app
