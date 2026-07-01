@@ -106,6 +106,8 @@ workflows:
           echo "Using simulator UDID: $UDID"
           xcrun simctl boot "$UDID" || true
           open -a Simulator
+          echo "Waiting for simulator to finish booting..."
+          xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" build/ios/iphonesimulator/Runner.app
           xcrun simctl launch "$UDID" com.sameer.vita
 
