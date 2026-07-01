@@ -109,7 +109,9 @@ workflows:
           echo "Waiting for simulator to finish booting..."
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" build/ios/iphonesimulator/Runner.app
-          xcrun simctl launch "$UDID" com.sameer.vita
+          ACTUAL_ID=$(defaults read "$(pwd)/build/ios/iphonesimulator/Runner.app/Info" CFBundleIdentifier)
+          echo "Launching bundle ID: $ACTUAL_ID"
+          xcrun simctl launch "$UDID" "$ACTUAL_ID"
 
       - name: Keep session alive for VNC viewing
         script: |
