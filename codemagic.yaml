@@ -107,8 +107,7 @@ workflows:
           xcrun simctl boot "$UDID" || true
           open -a Simulator
           xcrun simctl install "$UDID" build/ios/iphonesimulator/Runner.app
-          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" ios/Runner/Info.plist)
-          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          xcrun simctl launch "$UDID" com.sameer.vita
 
       - name: Keep session alive for VNC viewing
         script: |
