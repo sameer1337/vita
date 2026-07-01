@@ -9,7 +9,7 @@ workflows:
       groups:
         - firebase
       vars:
-        BUNDLE_ID: com.sameer.vita
+        BUNDLE_ID: com.example.vita
       # Secrets set in Codemagic UI (not here):
       #   APPLE_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_ID,
       #   APP_STORE_CONNECT_PRIVATE_KEY, CERTIFICATE_PRIVATE_KEY (for code signing)
